@@ -10,6 +10,8 @@ IconForge is a Python-based application for removing backgrounds from images and
 
 Currently the background remover works with any image, but the SVG converter will only make clean silhouettes of images, thus it really only works with basic Icons. Full color and multi-layer support are still being worked on and will be updated at a later date.
 
+[IconForge Demo Video](https://www.youtube.com/watch?v=kLyfFY8sXuQ)
+
 ## Purpose
 
 The purpose of IconForge was to create a simple application that allowed a user to take images found or generated via AI, and be able to remove it's background as well as manipulate it inside design software such as figma. This purpose was born from my own annoyance at having to open photoshop anytime I wanted to remove a simple background, as well as being disappointed with most free online options. My own process of converting images to SVGs is also very painful, which involves me making X copies of a traced image where X is the number of colors the image has. I then delete portions of each SVG (keeping that specific color) and then layer them back into one image. It's a very tedious process that I wanted to automate.
