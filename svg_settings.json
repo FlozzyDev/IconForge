@@ -1,0 +1,47 @@
+{
+  "threshold": {
+    "value": 128,
+    "description": "Controls how dark a pixel needs to be to become black (0-255). Lower = bolder, Higher = lighter",
+    "range": [
+      0,
+      255
+    ]
+  },
+  "turdsize": {
+    "value": 2,
+    "description": "Minimum area (in pixels) for a path to be included. Higher = removes small details",
+    "range": [
+      0,
+      100
+    ]
+  },
+  "alphamax": {
+    "value": 1.0,
+    "description": "Corner threshold for curve smoothing. Lower = sharper corners, Higher = smoother curves",
+    "range": [
+      0.0,
+      2.0
+    ]
+  },
+  "opttolerance": {
+    "value": 0.2,
+    "description": "Curve optimization tolerance. Lower = more precise curves, Higher = simpler curves",
+    "range": [
+      0.0,
+      1.0
+    ]
+  },
+  "longcurve": {
+    "value": true,
+    "description": "Enable long curve optimization for smoother paths",
+    "type": "boolean"
+  },
+  "scale": {
+    "value": 1.0,
+    "description": "Scaling factor for the output SVG. 1.0 = original size",
+    "range": [
+      0.1,
+      10.0
+    ]
+  }
+}
