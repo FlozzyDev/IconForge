@@ -1,4 +1,9 @@
 .env
 venv/
+.venv/
 *.egg-info/
 __pycache__
+assets/input_images/*
+backend/background_remover/output/*
+frontend/node_modules/
+frontend/dist/

@@ -6,7 +6,7 @@ from PIL import Image
 import numpy as np
 from typing import Optional
 from dotenv import load_dotenv
-from iconforge.core.utils import loading_animation
+from backend.core.utils import loading_animation
 
 load_dotenv()
 
@@ -34,7 +34,7 @@ class SVGConverter:
     def _load_settings(self) -> dict:
         """Load settings from the settings module. A user can change the settings via the menu."""
         try:
-            from iconforge.svg_converter.settings import SVGSettings
+            from backend.svg_converter.settings import SVGSettings
 
             settings_manager = SVGSettings()
             return settings_manager.get_settings()
@@ -71,6 +71,55 @@ class SVGConverter:
         self._process_to_svg(image_path)
 
         print("\nReturning to main menu...")
+
+    def convert(self, image_path: Path, settings: dict = None) -> Path:
+        """Programmatic API for SVG conversion. Returns output SVG path.
+
+        Args:
+            image_path: Path to a background-removed PNG image
+            settings: Optional settings override dict (threshold, turdsize, etc.)
+        """
+        if not self._check_potrace():
+            raise RuntimeError("Potrace not found. Check POTRACE_PATH in .env")
+
+        active_settings = settings if settings else self.settings
+
+        # Convert to black & white
+        bw_image = self._convert_to_black_white(image_path, active_settings.get("threshold", 128))
+
+        # Save temporary bitmap
+        with tempfile.NamedTemporaryFile(suffix=".pbm", delete=False) as temp_file:
+            temp_bmp_path = temp_file.name
+            bw_image.save(temp_bmp_path, "PPM")
+
+        try:
+            output_filename = f"{image_path.stem}_vector.svg"
+            output_path = self.output_dir / output_filename
+
+            cmd = [
+                str(self.potrace_path),
+                temp_bmp_path,
+                "-s",
+                "--turdsize", str(active_settings.get("turdsize", 2)),
+                "--alphamax", str(active_settings.get("alphamax", 1.0)),
+                "--opttolerance", str(active_settings.get("opttolerance", 0.2)),
+                "--scale", str(active_settings.get("scale", 1.0)),
+                "-o", str(output_path),
+            ]
+
+            if active_settings.get("longcurve", True):
+                cmd.append("--longcurve")
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            if result.returncode != 0:
+                raise RuntimeError(f"Potrace error: {result.stderr}")
+
+            return output_path
+
+        finally:
+            if os.path.exists(temp_bmp_path):
+                os.unlink(temp_bmp_path)
 
     def _check_potrace(self) -> bool:
         """Check if Potrace is available at the expected location"""
@@ -185,7 +234,7 @@ class SVGConverter:
             print(f"Error during conversion: {e}")
             print("Please ensure the image is suitable for vectorization.")
 
-    def _convert_to_black_white(self, image_path: Path) -> Image.Image:
+    def _convert_to_black_white(self, image_path: Path, threshold: int = None) -> Image.Image:
         """Convert PNG image to black and white bitmap for Potrace using its alpha channel."""
         # Load image with transparency, images should already have background removed
         image = Image.open(image_path)
@@ -196,7 +245,8 @@ class SVGConverter:
 
         # Get the alpha channel
         alpha = image.getchannel("A")
-        threshold = self.settings["threshold"]
+        if threshold is None:
+            threshold = self.settings["threshold"]
 
         # Create a numpy array from the alpha channel
         alpha_array = np.array(alpha)

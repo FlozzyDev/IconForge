@@ -1,6 +1,6 @@
 import onnxruntime as ort
 import warnings
-from iconforge.core.utils import loading_animation
+from backend.core.utils import loading_animation
 
 warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 warnings.filterwarnings("ignore", category=UserWarning, module="transparent_background")
@@ -19,14 +19,15 @@ def main():
         print("1. Background Remover")
         print("2. SVG Converter")
         print("3. SVG Converter Settings")
-        print("4. Exit")
+        print("4. Launch Web UI")
+        print("5. Exit")
 
         menu_choice = input("\nSelect an option: ")
 
         if menu_choice == "1":
             print("\nLoading Background Remover...")
             loading_animation(1, "Initializing...")
-            from iconforge.background_remover.processor import BackgroundProcessor
+            from backend.background_remover.processor import BackgroundProcessor
 
             loading_animation(1, "Loading models...")
             processor = BackgroundProcessor()
@@ -34,7 +35,7 @@ def main():
         elif menu_choice == "2":
             print("\nLoading SVG Converter...")
             loading_animation(1, "Initializing...")
-            from iconforge.svg_converter.processor import SVGConverter
+            from backend.svg_converter.processor import SVGConverter
 
             loading_animation(1, "Loading components...")
             converter = SVGConverter()
@@ -42,12 +43,15 @@ def main():
         elif menu_choice == "3":
             print("\nLoading SVG Converter Settings...")
             loading_animation(1, "Initializing...")
-            from iconforge.svg_converter.settings import SVGSettings
+            from backend.svg_converter.settings import SVGSettings
 
             loading_animation(1, "Loading settings...")
             settings = SVGSettings()
             settings.run()
         elif menu_choice == "4":
+            from backend.api.app import serve
+            serve()
+        elif menu_choice == "5":
             print("Application Closing")
             break
         else:

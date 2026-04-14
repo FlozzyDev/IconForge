@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, Any
-from iconforge.core.utils import loading_animation
+from backend.core.utils import loading_animation
 
 class SVGSettings:
     def __init__(self):

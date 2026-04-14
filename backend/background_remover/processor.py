@@ -8,7 +8,7 @@ import numpy as np
 import rembg.sessions
 from transparent_background import Remover
 from typing import Optional
-from iconforge.core.utils import loading_animation
+from backend.core.utils import loading_animation
 
 warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 warnings.filterwarnings("ignore", category=UserWarning, module="transparent_background")
@@ -177,6 +177,49 @@ class BackgroundProcessor:
         except Exception as e:
             print(f"Error: Model not available locally. {e}")
             print("Choose a different model or download this model first.")
+
+    def process(self, image_path: Path, model_type: str, model_name: str = "bria-rmbg", mode: str = "base") -> Path:
+        """Programmatic API for background removal. Returns output file path.
+
+        Args:
+            image_path: Path to the input image
+            model_type: "rembg" or "inspyrenet"
+            model_name: rembg model name (ignored for inspyrenet)
+            mode: "base" or "fast" (only for inspyrenet)
+        """
+        if model_type == "rembg":
+            input_image = Image.open(image_path)
+            session = rembg.new_session(model_name)
+            result = rembg.remove(input_image, session=session)
+
+            if isinstance(result, Image.Image):
+                output_image = result
+            else:
+                output_image = (
+                    Image.fromarray(result)
+                    if isinstance(result, np.ndarray)
+                    else Image.open(io.BytesIO(result))
+                )
+
+            output_filename = f"{image_path.stem}_rembg_{model_name}.png"
+            output_path = self.output_dir / output_filename
+            output_image.save(output_path)
+            return output_path
+
+        elif model_type == "inspyrenet":
+            input_image = Image.open(image_path).convert("RGB")
+            input_array = np.array(input_image)
+            remover = Remover(mode=mode, jit=True)
+            output_array = remover.process(input_array, type="rgba")
+            output_image = Image.fromarray(output_array)
+
+            output_filename = f"{image_path.stem}_inspyrenet_{mode}.png"
+            output_path = self.output_dir / output_filename
+            output_image.save(output_path)
+            return output_path
+
+        else:
+            raise ValueError(f"Unknown model_type: {model_type}")
 
     def _process_with_inspyrenet(self, image_path: Path):
         """Process image using InSPyReNet (transparent-background) - locally installed"""
