@@ -75,6 +75,36 @@ export async function checkPotrace(): Promise<{ available: boolean }> {
   return request("/svg/check-potrace")
 }
 
+// Color SVG (vtracer) conversion
+export async function convertColorSVG(
+  image: string,
+  settings?: Record<string, unknown>
+): Promise<{ filename: string }> {
+  return request("/color-svg/convert", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image, settings }),
+  })
+}
+
+export async function checkVtracer(): Promise<{ available: boolean }> {
+  return request("/color-svg/check-vtracer")
+}
+
+export async function getColorSVGSettings(): Promise<Record<string, unknown>> {
+  return request("/settings/color-svg")
+}
+
+export async function updateColorSVGSettings(
+  updates: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  return request("/settings/color-svg", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  })
+}
+
 // Export
 export async function exportWebp(
   image: string,

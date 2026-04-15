@@ -16,9 +16,9 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="transparent_b
 
 class BackgroundProcessor:
     def __init__(self):
-        self.project_root = Path(__file__).parent.parent.parent.parent
+        self.project_root = Path(__file__).parent.parent.parent
         self.input_dir = self.project_root / "assets" / "input_images"
-        self.output_dir = self.project_root / "src" / "iconforge" / "background_remover" / "output"
+        self.output_dir = self.project_root / "backend" / "background_remover" / "output"
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 

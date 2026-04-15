@@ -1,69 +1,86 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import type { ImageInfo, ProcessingOptions, ProcessingResults } from "@/types"
+import type { ImageInfo, ProcessingOptions } from "@/types"
 import * as api from "@/services/api"
 
 interface ProcessingStepProps {
-  croppedImage: ImageInfo
+  backgroundRemoved: ImageInfo
   options: ProcessingOptions
-  onComplete: (results: ProcessingResults) => void
+  onComplete: (file: { filename: string; type: "webp" | "svg" }) => void
   onError: (error: string) => void
 }
 
 export function ProcessingStep({
-  croppedImage,
+  backgroundRemoved,
   options,
   onComplete,
   onError,
 }: ProcessingStepProps) {
   const [status, setStatus] = useState("Starting...")
-  const [progress, setProgress] = useState(0)
+  const [progress, setProgress] = useState(10)
 
   useEffect(() => {
     let cancelled = false
 
     async function run() {
-      const results: ProcessingResults = {}
-      const steps: string[] = []
-      if (options.removeBackground) steps.push("bg")
-      if (options.silhouette) steps.push("svg")
-      const stepSize = 100 / steps.length
-
       try {
-        let currentProgress = 0
-
-        // Step 1: Background removal
-        if (options.removeBackground && !cancelled) {
-          setStatus("Removing background...")
-          const bgResult = await api.processBackground(
-            croppedImage.filename,
-            options.bgSettings.modelType,
-            options.bgSettings.modelName,
-            options.bgSettings.mode
-          )
-          results.backgroundRemoved = bgResult
-          currentProgress += stepSize
-          setProgress(currentProgress)
+        if (options.outputType === "webp") {
+          // WebP is produced on-demand by the Export step from the
+          // background-removed PNG; nothing to do here beyond passing through.
+          if (!cancelled) {
+            setStatus("Ready to export")
+            setProgress(100)
+            setTimeout(
+              () =>
+                onComplete({
+                  filename: backgroundRemoved.filename,
+                  type: "webp",
+                }),
+              400
+            )
+          }
+          return
         }
 
-        // Step 2: Silhouette SVG (needs bg-removed image if available)
-        if (options.silhouette && !cancelled) {
-          setStatus("Creating silhouette...")
-          const sourceImage = results.backgroundRemoved
-            ? results.backgroundRemoved.filename
-            : croppedImage.filename
-          const svgResult = await api.convertToSvg(sourceImage, options.svgSettings)
-          results.silhouette = svgResult
-          currentProgress += stepSize
-          setProgress(currentProgress)
+        if (options.outputType === "silhouette") {
+          setStatus("Creating silhouette SVG...")
+          setProgress(40)
+          const result = await api.convertToSvg(
+            backgroundRemoved.filename,
+            options.svgSettings
+          )
+          if (!cancelled) {
+            setStatus("Done")
+            setProgress(100)
+            setTimeout(
+              () => onComplete({ filename: result.filename, type: "svg" }),
+              400
+            )
+          }
+          return
+        }
+
+        if (options.outputType === "colorSVG") {
+          setStatus("Vectorizing with VTracer...")
+          setProgress(40)
+          const result = await api.convertColorSVG(
+            backgroundRemoved.filename,
+            options.colorSVGSettings
+          )
+          if (!cancelled) {
+            setStatus("Done")
+            setProgress(100)
+            setTimeout(
+              () => onComplete({ filename: result.filename, type: "svg" }),
+              400
+            )
+          }
+          return
         }
 
         if (!cancelled) {
-          setStatus("Done!")
-          setProgress(100)
-          // Small delay so user sees 100%
-          setTimeout(() => onComplete(results), 500)
+          onError("No output type selected")
         }
       } catch (err) {
         if (!cancelled) {
@@ -73,7 +90,9 @@ export function ProcessingStep({
     }
 
     run()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

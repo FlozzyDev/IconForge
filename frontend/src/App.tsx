@@ -1,11 +1,11 @@
 import { WizardLayout } from "@/components/layout/WizardLayout"
 import { UploadStep } from "@/components/steps/UploadStep"
-import { OptionsStep } from "@/components/steps/OptionsStep"
+import { BackgroundRemovalStep } from "@/components/steps/BackgroundRemovalStep"
+import { OutputTypeStep } from "@/components/steps/OutputTypeStep"
 import { ProcessingStep } from "@/components/steps/ProcessingStep"
-import { CompareStep } from "@/components/steps/CompareStep"
 import { ExportStep } from "@/components/steps/ExportStep"
 import { useWizard } from "@/hooks/useWizard"
-import type { ImageInfo, ProcessingOptions, ProcessingResults } from "@/types"
+import type { ImageInfo, ProcessingOptions } from "@/types"
 
 export default function App() {
   const {
@@ -15,7 +15,8 @@ export default function App() {
     setOriginalImage,
     setCroppedImage,
     setOptions,
-    setResults,
+    setBackgroundRemoved,
+    setOutputFile,
     goToStep,
     reset,
   } = useWizard()
@@ -30,8 +31,15 @@ export default function App() {
     setOptions(options)
   }
 
-  function handleProcessingComplete(results: ProcessingResults) {
-    setResults(results)
+  function handleBgComplete(result: ImageInfo) {
+    setBackgroundRemoved(result)
+  }
+
+  function handleProcessingComplete(file: {
+    filename: string
+    type: "webp" | "svg"
+  }) {
+    setOutputFile(file)
     nextStep()
   }
 
@@ -43,7 +51,9 @@ export default function App() {
   return (
     <WizardLayout
       currentStep={state.currentStep}
-      onBack={state.currentStep > 1 && state.currentStep < 3 ? prevStep : undefined}
+      onBack={
+        state.currentStep > 1 && state.currentStep < 4 ? prevStep : undefined
+      }
       onReset={state.currentStep > 1 ? reset : undefined}
     >
       {state.currentStep === 1 && (
@@ -51,33 +61,39 @@ export default function App() {
       )}
 
       {state.currentStep === 2 && state.croppedImage && (
-        <OptionsStep
+        <BackgroundRemovalStep
           croppedImage={state.croppedImage}
+          backgroundRemoved={state.results.backgroundRemoved}
           options={state.options}
           onOptionsChange={handleOptionsChange}
+          onComplete={handleBgComplete}
           onNext={() => goToStep(3)}
         />
       )}
 
-      {state.currentStep === 3 && state.croppedImage && (
+      {state.currentStep === 3 && state.results.backgroundRemoved && (
+        <OutputTypeStep
+          options={state.options}
+          onOptionsChange={handleOptionsChange}
+          onNext={() => goToStep(4)}
+        />
+      )}
+
+      {state.currentStep === 4 && state.results.backgroundRemoved && (
         <ProcessingStep
-          croppedImage={state.croppedImage}
+          backgroundRemoved={state.results.backgroundRemoved}
           options={state.options}
           onComplete={handleProcessingComplete}
           onError={handleProcessingError}
         />
       )}
 
-      {state.currentStep === 4 && state.croppedImage && (
-        <CompareStep
-          croppedImage={state.croppedImage}
-          results={state.results}
-          onNext={nextStep}
-        />
-      )}
-
       {state.currentStep === 5 && (
-        <ExportStep results={state.results} onStartOver={reset} />
+        <ExportStep
+          results={state.results}
+          options={state.options}
+          onStartOver={reset}
+        />
       )}
     </WizardLayout>
   )

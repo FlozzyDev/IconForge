@@ -1,4 +1,10 @@
-const STEPS = ["Upload & Crop", "Options", "Processing", "Compare", "Export"]
+const STEPS = [
+  "Upload & Crop",
+  "Background Removal",
+  "Output Type",
+  "Processing",
+  "Export",
+]
 
 interface StepIndicatorProps {
   currentStep: number

@@ -1,25 +1,25 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { ImagePreview } from "@/components/shared/ImagePreview"
-import type { ProcessingResults } from "@/types"
+import type { ProcessingOptions, ProcessingResults } from "@/types"
 import * as api from "@/services/api"
 
 interface ExportStepProps {
   results: ProcessingResults
+  options: ProcessingOptions
   onStartOver: () => void
 }
 
-export function ExportStep({ results, onStartOver }: ExportStepProps) {
-  const [quality, setQuality] = useState(90)
+export function ExportStep({ results, options, onStartOver }: ExportStepProps) {
   const [exporting, setExporting] = useState(false)
+  const outputFile = results.outputFile
 
   async function downloadWebp(filename: string) {
     setExporting(true)
     try {
-      const blob = await api.exportWebp(filename, quality)
+      const blob = await api.exportWebp(filename, options.webpQuality)
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
@@ -45,70 +45,56 @@ export function ExportStep({ results, onStartOver }: ExportStepProps) {
     document.body.removeChild(a)
   }
 
+  if (!outputFile) {
+    return (
+      <Card className="max-w-md mx-auto">
+        <CardContent className="p-6 text-center text-muted-foreground">
+          No output file available. Please restart the wizard.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const previewUrl = api.getImageUrl("output", outputFile.filename)
+  const isWebp = outputFile.type === "webp"
+
   return (
     <div className="space-y-6">
-      {/* WebP export for background-removed image */}
-      {results.backgroundRemoved && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Background Removed
-              <Badge>WebP</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <ImagePreview
-              src={api.getImageUrl("output", results.backgroundRemoved.filename)}
-              className="h-[250px]"
-            />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {isWebp ? "Background Removed" : "Vector Output"}
+            <Badge variant={isWebp ? "default" : "secondary"}>
+              {isWebp ? "WebP" : "SVG"}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ImagePreview src={previewUrl} className="h-[350px]" />
 
-            <div className="flex items-center gap-4">
-              <span className="text-sm whitespace-nowrap">Quality: {quality}</span>
-              <Slider
-                value={[quality]}
-                min={1}
-                max={100}
-                step={1}
-                onValueChange={(v) => setQuality(Array.isArray(v) ? v[0] : v)}
-                className="flex-1"
-              />
-            </div>
+          {isWebp && (
+            <p className="text-sm text-center text-muted-foreground">
+              Quality: {options.webpQuality} (set in Output Type step)
+            </p>
+          )}
 
-            <Button
-              onClick={() => downloadWebp(results.backgroundRemoved!.filename)}
-              disabled={exporting}
-              className="w-full"
-            >
-              {exporting ? "Exporting..." : "Download as WebP"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* SVG export for silhouette */}
-      {results.silhouette && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Silhouette
-              <Badge variant="secondary">SVG</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <ImagePreview
-              src={api.getImageUrl("output", results.silhouette.filename)}
-              className="h-[250px]"
-            />
-            <Button
-              onClick={() => downloadSvg(results.silhouette!.filename)}
-              variant="outline"
-              className="w-full"
-            >
-              Download SVG
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          <Button
+            onClick={() =>
+              isWebp
+                ? downloadWebp(outputFile.filename)
+                : downloadSvg(outputFile.filename)
+            }
+            disabled={exporting}
+            className="w-full"
+          >
+            {exporting
+              ? "Exporting..."
+              : isWebp
+              ? "Download as WebP"
+              : "Download SVG"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="flex justify-center">
         <Button variant="ghost" onClick={onStartOver}>

@@ -1,9 +1,14 @@
 import { useState } from "react"
-import type { WizardState, ImageInfo, ProcessingOptions, ProcessingResults } from "@/types"
+import type {
+  WizardState,
+  ImageInfo,
+  ProcessingOptions,
+  ProcessingResults,
+} from "@/types"
 
 const DEFAULT_OPTIONS: ProcessingOptions = {
-  removeBackground: true,
-  silhouette: false,
+  outputType: null,
+  webpQuality: 90,
   bgSettings: {
     modelType: "rembg",
     modelName: "bria-rmbg",
@@ -16,6 +21,18 @@ const DEFAULT_OPTIONS: ProcessingOptions = {
     opttolerance: 0.2,
     longcurve: true,
     scale: 1.0,
+  },
+  colorSVGSettings: {
+    colormode: "color",
+    hierarchical: "cutout",
+    mode: "spline",
+    filter_speckle: 4,
+    color_precision: 6,
+    layer_difference: 16,
+    corner_threshold: 60,
+    length_threshold: 4.0,
+    splice_threshold: 45,
+    path_precision: 8,
   },
 }
 
@@ -45,11 +62,29 @@ export function useWizard() {
   }
 
   function setCroppedImage(image: ImageInfo) {
-    setState((prev) => ({ ...prev, croppedImage: image }))
+    setState((prev) => ({
+      ...prev,
+      croppedImage: image,
+      results: {},
+    }))
   }
 
   function setOptions(options: ProcessingOptions) {
     setState((prev) => ({ ...prev, options }))
+  }
+
+  function setBackgroundRemoved(image: ImageInfo) {
+    setState((prev) => ({
+      ...prev,
+      results: { backgroundRemoved: image },
+    }))
+  }
+
+  function setOutputFile(file: { filename: string; type: "webp" | "svg" }) {
+    setState((prev) => ({
+      ...prev,
+      results: { ...prev.results, outputFile: file },
+    }))
   }
 
   function setResults(results: ProcessingResults) {
@@ -74,6 +109,8 @@ export function useWizard() {
     setOriginalImage,
     setCroppedImage,
     setOptions,
+    setBackgroundRemoved,
+    setOutputFile,
     setResults,
     reset,
   }

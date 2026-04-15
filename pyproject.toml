@@ -2,7 +2,7 @@
 name = "iconforge"
 version = "0.1.0"
 description = "A tool for icon processing and manipulation"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "numpy==2.2.6",
     "onnxruntime-gpu==1.22.0",
@@ -21,4 +21,17 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "python-multipart",
+    "vtracer>=0.6.15",
+    "torch==2.7.1+cu128",
+    "torchvision==0.22.1+cu128",
 ]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
