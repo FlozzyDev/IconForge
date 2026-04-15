@@ -11,18 +11,21 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { ImageIcon, Sparkles, Palette } from "lucide-react"
+import { ImageIcon, Sparkles, Palette, Layers } from "lucide-react"
 import type {
   ColorSVGSettings,
   OutputType,
+  PotraceColorSettings,
   ProcessingOptions,
   SilhouetteSettings,
 } from "@/types"
 import * as api from "@/services/api"
 import { COLOR_SVG_PRESETS } from "@/lib/colorSVGPresets"
+import { POTRACE_COLOR_PRESETS } from "@/lib/potraceColorPresets"
 
 interface OutputTypeStepProps {
   options: ProcessingOptions
+  hasBgRemoval: boolean
   onOptionsChange: (options: ProcessingOptions) => void
   onNext: () => void
 }
@@ -33,16 +36,24 @@ function sv(v: number | readonly number[]): number {
 
 export function OutputTypeStep({
   options,
+  hasBgRemoval,
   onOptionsChange,
   onNext,
 }: OutputTypeStepProps) {
   const [vtracerAvailable, setVtracerAvailable] = useState<boolean | null>(null)
+  const [potraceColorAvailable, setPotraceColorAvailable] = useState<boolean | null>(
+    null
+  )
 
   useEffect(() => {
     api
       .checkVtracer()
       .then((r) => setVtracerAvailable(r.available))
       .catch(() => setVtracerAvailable(false))
+    api
+      .checkPotraceColor()
+      .then((r) => setPotraceColorAvailable(r.available))
+      .catch(() => setPotraceColorAvailable(false))
   }, [])
 
   function selectType(type: OutputType) {
@@ -83,6 +94,34 @@ export function OutputTypeStep({
     )
   }
 
+  function updatePotrace(partial: Partial<PotraceColorSettings>) {
+    onOptionsChange({
+      ...options,
+      potraceColorSettings: { ...options.potraceColorSettings, ...partial },
+    })
+  }
+
+  function applyPotracePreset(settings: PotraceColorSettings) {
+    onOptionsChange({ ...options, potraceColorSettings: settings })
+  }
+
+  function potraceMatchesPreset(preset: PotraceColorSettings): boolean {
+    const cur = options.potraceColorSettings
+    return (
+      cur.n_colors === preset.n_colors &&
+      cur.upscale_factor === preset.upscale_factor &&
+      cur.smoothing === preset.smoothing &&
+      cur.smooth_spatial_radius === preset.smooth_spatial_radius &&
+      cur.smooth_color_radius === preset.smooth_color_radius &&
+      cur.alpha_threshold === preset.alpha_threshold &&
+      cur.min_region_pixels === preset.min_region_pixels &&
+      cur.turdsize === preset.turdsize &&
+      cur.alphamax === preset.alphamax &&
+      cur.opttolerance === preset.opttolerance &&
+      cur.longcurve === preset.longcurve
+    )
+  }
+
   function updateQuality(q: number) {
     onOptionsChange({ ...options, webpQuality: q })
   }
@@ -106,6 +145,8 @@ export function OutputTypeStep({
       label: "Silhouette SVG",
       desc: "Monochrome vector outline via Potrace.",
       icon: Sparkles,
+      disabled: !hasBgRemoval,
+      disabledReason: hasBgRemoval ? undefined : "requires background removal",
     },
     {
       type: "colorSVG",
@@ -114,6 +155,14 @@ export function OutputTypeStep({
       icon: Palette,
       disabled: vtracerAvailable === false,
       disabledReason: "vtracer not installed on backend",
+    },
+    {
+      type: "colorPotrace",
+      label: "Color SVG (Precision)",
+      desc: "AA-aware, higher edge quality via upscale + Potrace. Slower.",
+      icon: Layers,
+      disabled: potraceColorAvailable === false,
+      disabledReason: "potrace not available",
     },
   ]
 
@@ -124,7 +173,7 @@ export function OutputTypeStep({
           <CardTitle>Choose Output Type</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {typeCards.map(({ type, label, desc, icon: Icon, disabled, disabledReason }) => {
               const active = options.outputType === type
               return (
@@ -467,6 +516,220 @@ export function OutputTypeStep({
                 max={16}
                 step={1}
                 onValueChange={(v) => updateColor({ path_precision: sv(v) })}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {options.outputType === "colorPotrace" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Color SVG (Precision) Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Presets</label>
+              <div className="flex flex-wrap gap-2">
+                {POTRACE_COLOR_PRESETS.map((preset) => {
+                  const active = potraceMatchesPreset(preset.settings)
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyPotracePreset(preset.settings)}
+                      title={preset.description}
+                      className={`
+                        px-3 py-1.5 text-xs rounded-full border transition-colors
+                        ${
+                          active
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border hover:border-primary/50 hover:bg-accent"
+                        }
+                      `}
+                    >
+                      {preset.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm">Upscale Factor</label>
+                <Select
+                  value={String(options.potraceColorSettings.upscale_factor)}
+                  onValueChange={(v) =>
+                    updatePotrace({
+                      upscale_factor: Number(v) as 1 | 2 | 3 | 4,
+                    })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1\u00d7 (no upscale)</SelectItem>
+                    <SelectItem value="2">2\u00d7</SelectItem>
+                    <SelectItem value="3">3\u00d7 (default)</SelectItem>
+                    <SelectItem value="4">4\u00d7 (highest)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm">Smoothing</label>
+                <Select
+                  value={options.potraceColorSettings.smoothing}
+                  onValueChange={(v) =>
+                    updatePotrace({
+                      smoothing: v as "none" | "bilateral" | "mean_shift",
+                    })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mean_shift">Mean-shift (best)</SelectItem>
+                    <SelectItem value="bilateral">Bilateral (faster)</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Palette Size (colors)</span>
+                <span className="text-muted-foreground">
+                  {options.potraceColorSettings.n_colors}
+                </span>
+              </div>
+              <Slider
+                value={[options.potraceColorSettings.n_colors]}
+                min={2}
+                max={16}
+                step={1}
+                onValueChange={(v) => updatePotrace({ n_colors: sv(v) })}
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Smooth Spatial Radius</span>
+                <span className="text-muted-foreground">
+                  {options.potraceColorSettings.smooth_spatial_radius}
+                </span>
+              </div>
+              <Slider
+                value={[options.potraceColorSettings.smooth_spatial_radius]}
+                min={5}
+                max={50}
+                step={1}
+                onValueChange={(v) =>
+                  updatePotrace({ smooth_spatial_radius: sv(v) })
+                }
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Smooth Color Radius</span>
+                <span className="text-muted-foreground">
+                  {options.potraceColorSettings.smooth_color_radius}
+                </span>
+              </div>
+              <Slider
+                value={[options.potraceColorSettings.smooth_color_radius]}
+                min={5}
+                max={50}
+                step={1}
+                onValueChange={(v) =>
+                  updatePotrace({ smooth_color_radius: sv(v) })
+                }
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Alpha Threshold</span>
+                <span className="text-muted-foreground">
+                  {options.potraceColorSettings.alpha_threshold}
+                </span>
+              </div>
+              <Slider
+                value={[options.potraceColorSettings.alpha_threshold]}
+                min={0}
+                max={255}
+                step={1}
+                onValueChange={(v) => updatePotrace({ alpha_threshold: sv(v) })}
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Min Region Pixels</span>
+                <span className="text-muted-foreground">
+                  {options.potraceColorSettings.min_region_pixels}
+                </span>
+              </div>
+              <Slider
+                value={[options.potraceColorSettings.min_region_pixels]}
+                min={0}
+                max={500}
+                step={1}
+                onValueChange={(v) =>
+                  updatePotrace({ min_region_pixels: sv(v) })
+                }
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Potrace turdsize</span>
+                <span className="text-muted-foreground">
+                  {options.potraceColorSettings.turdsize}
+                </span>
+              </div>
+              <Slider
+                value={[options.potraceColorSettings.turdsize]}
+                min={0}
+                max={100}
+                step={1}
+                onValueChange={(v) => updatePotrace({ turdsize: sv(v) })}
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Potrace alphamax</span>
+                <span className="text-muted-foreground">
+                  {options.potraceColorSettings.alphamax}
+                </span>
+              </div>
+              <Slider
+                value={[options.potraceColorSettings.alphamax]}
+                min={0}
+                max={2}
+                step={0.1}
+                onValueChange={(v) => updatePotrace({ alphamax: sv(v) })}
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Potrace opttolerance</span>
+                <span className="text-muted-foreground">
+                  {options.potraceColorSettings.opttolerance}
+                </span>
+              </div>
+              <Slider
+                value={[options.potraceColorSettings.opttolerance]}
+                min={0}
+                max={1}
+                step={0.05}
+                onValueChange={(v) => updatePotrace({ opttolerance: sv(v) })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Long Curve Optimization</span>
+              <Switch
+                checked={options.potraceColorSettings.longcurve}
+                onCheckedChange={(v) => updatePotrace({ longcurve: v })}
               />
             </div>
           </CardContent>

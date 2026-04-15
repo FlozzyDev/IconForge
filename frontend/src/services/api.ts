@@ -105,6 +105,36 @@ export async function updateColorSVGSettings(
   })
 }
 
+// Potrace Color (AA-aware precision engine)
+export async function convertPotraceColor(
+  image: string,
+  settings?: Record<string, unknown>
+): Promise<{ filename: string }> {
+  return request("/potrace-color/convert", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image, settings }),
+  })
+}
+
+export async function checkPotraceColor(): Promise<{ available: boolean }> {
+  return request("/potrace-color/check")
+}
+
+export async function getPotraceColorSettings(): Promise<Record<string, unknown>> {
+  return request("/settings/potrace-color")
+}
+
+export async function updatePotraceColorSettings(
+  updates: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  return request("/settings/potrace-color", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  })
+}
+
 // Export
 export async function exportWebp(
   image: string,

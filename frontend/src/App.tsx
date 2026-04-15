@@ -16,6 +16,7 @@ export default function App() {
     setCroppedImage,
     setOptions,
     setBackgroundRemoved,
+    clearBackgroundRemoved,
     setOutputFile,
     goToStep,
     reset,
@@ -35,6 +36,17 @@ export default function App() {
     setBackgroundRemoved(result)
   }
 
+  function handleBgSkip() {
+    // Discard any previous BG-removed result and advance. The output-type and
+    // processing steps will fall back to the cropped image as the source.
+    clearBackgroundRemoved()
+    // If the user had silhouette selected, clear it — it requires alpha.
+    if (state.options.outputType === "silhouette") {
+      setOptions({ ...state.options, outputType: null })
+    }
+    goToStep(3)
+  }
+
   function handleProcessingComplete(file: {
     filename: string
     type: "webp" | "svg"
@@ -47,6 +59,10 @@ export default function App() {
     console.error("Processing error:", error)
     prevStep()
   }
+
+  // Source image for output/processing steps: BG-removed if available, else crop.
+  const sourceImage = state.results.backgroundRemoved ?? state.croppedImage
+  const hasBgRemoval = Boolean(state.results.backgroundRemoved)
 
   return (
     <WizardLayout
@@ -67,21 +83,23 @@ export default function App() {
           options={state.options}
           onOptionsChange={handleOptionsChange}
           onComplete={handleBgComplete}
+          onSkip={handleBgSkip}
           onNext={() => goToStep(3)}
         />
       )}
 
-      {state.currentStep === 3 && state.results.backgroundRemoved && (
+      {state.currentStep === 3 && sourceImage && (
         <OutputTypeStep
           options={state.options}
+          hasBgRemoval={hasBgRemoval}
           onOptionsChange={handleOptionsChange}
           onNext={() => goToStep(4)}
         />
       )}
 
-      {state.currentStep === 4 && state.results.backgroundRemoved && (
+      {state.currentStep === 4 && sourceImage && (
         <ProcessingStep
-          backgroundRemoved={state.results.backgroundRemoved}
+          sourceImage={sourceImage}
           options={state.options}
           onComplete={handleProcessingComplete}
           onError={handleProcessingError}

@@ -12,7 +12,7 @@ export interface CropData {
   height: number
 }
 
-export type OutputType = "webp" | "silhouette" | "colorSVG"
+export type OutputType = "webp" | "silhouette" | "colorSVG" | "colorPotrace"
 
 export interface BackgroundSettings {
   modelType: "rembg" | "inspyrenet"
@@ -42,12 +42,27 @@ export interface ColorSVGSettings {
   path_precision: number
 }
 
+export interface PotraceColorSettings {
+  n_colors: number
+  upscale_factor: 1 | 2 | 3 | 4
+  smoothing: "none" | "bilateral" | "mean_shift"
+  smooth_spatial_radius: number
+  smooth_color_radius: number
+  alpha_threshold: number
+  min_region_pixels: number
+  turdsize: number
+  alphamax: number
+  opttolerance: number
+  longcurve: boolean
+}
+
 export interface ProcessingOptions {
   outputType: OutputType | null
   webpQuality: number
   bgSettings: BackgroundSettings
   svgSettings: SilhouetteSettings
   colorSVGSettings: ColorSVGSettings
+  potraceColorSettings: PotraceColorSettings
 }
 
 export interface ProcessingResults {

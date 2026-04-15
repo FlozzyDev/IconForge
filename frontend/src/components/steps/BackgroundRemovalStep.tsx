@@ -23,6 +23,7 @@ interface BackgroundRemovalStepProps {
   options: ProcessingOptions
   onOptionsChange: (options: ProcessingOptions) => void
   onComplete: (result: ImageInfo) => void
+  onSkip: () => void
   onNext: () => void
 }
 
@@ -32,6 +33,7 @@ export function BackgroundRemovalStep({
   options,
   onOptionsChange,
   onComplete,
+  onSkip,
   onNext,
 }: BackgroundRemovalStepProps) {
   const [rembgModels, setRembgModels] = useState<string[]>([])
@@ -151,18 +153,31 @@ export function BackgroundRemovalStep({
             <p className="text-sm text-destructive text-center">{error}</p>
           )}
 
-          <Button
-            onClick={runRemoval}
-            disabled={processing}
-            className="w-full"
-            variant={backgroundRemoved ? "outline" : "default"}
-          >
-            {processing
-              ? "Processing..."
-              : backgroundRemoved
-              ? "Re-run with Current Settings"
-              : "Remove Background"}
-          </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <Button
+              onClick={runRemoval}
+              disabled={processing}
+              variant={backgroundRemoved ? "outline" : "default"}
+            >
+              {processing
+                ? "Processing..."
+                : backgroundRemoved
+                ? "Re-run with Current Settings"
+                : "Remove Background"}
+            </Button>
+            <Button
+              onClick={onSkip}
+              disabled={processing}
+              variant="ghost"
+            >
+              {backgroundRemoved
+                ? "Discard & Use Original"
+                : "Skip (Keep Original Background)"}
+            </Button>
+          </div>
+          <p className="text-xs text-center text-muted-foreground">
+            Skipping disables the Silhouette SVG output (it traces the alpha channel).
+          </p>
         </CardContent>
       </Card>
 
@@ -203,3 +218,4 @@ export function BackgroundRemovalStep({
     </div>
   )
 }
+

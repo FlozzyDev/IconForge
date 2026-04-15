@@ -5,14 +5,14 @@ import type { ImageInfo, ProcessingOptions } from "@/types"
 import * as api from "@/services/api"
 
 interface ProcessingStepProps {
-  backgroundRemoved: ImageInfo
+  sourceImage: ImageInfo
   options: ProcessingOptions
   onComplete: (file: { filename: string; type: "webp" | "svg" }) => void
   onError: (error: string) => void
 }
 
 export function ProcessingStep({
-  backgroundRemoved,
+  sourceImage,
   options,
   onComplete,
   onError,
@@ -34,7 +34,7 @@ export function ProcessingStep({
             setTimeout(
               () =>
                 onComplete({
-                  filename: backgroundRemoved.filename,
+                  filename: sourceImage.filename,
                   type: "webp",
                 }),
               400
@@ -47,7 +47,7 @@ export function ProcessingStep({
           setStatus("Creating silhouette SVG...")
           setProgress(40)
           const result = await api.convertToSvg(
-            backgroundRemoved.filename,
+            sourceImage.filename,
             options.svgSettings
           )
           if (!cancelled) {
@@ -65,8 +65,28 @@ export function ProcessingStep({
           setStatus("Vectorizing with VTracer...")
           setProgress(40)
           const result = await api.convertColorSVG(
-            backgroundRemoved.filename,
+            sourceImage.filename,
             options.colorSVGSettings
+          )
+          if (!cancelled) {
+            setStatus("Done")
+            setProgress(100)
+            setTimeout(
+              () => onComplete({ filename: result.filename, type: "svg" }),
+              400
+            )
+          }
+          return
+        }
+
+        if (options.outputType === "colorPotrace") {
+          setStatus(
+            "Running AA-aware color vectorization... this may take up to a minute"
+          )
+          setProgress(30)
+          const result = await api.convertPotraceColor(
+            sourceImage.filename,
+            options.potraceColorSettings
           )
           if (!cancelled) {
             setStatus("Done")

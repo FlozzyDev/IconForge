@@ -3,7 +3,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.api.routes import background, color_svg, crop, export, images, svg, upload
+from backend.api.routes import (
+    background,
+    color_svg,
+    crop,
+    export,
+    images,
+    potrace_color,
+    svg,
+    upload,
+)
 from backend.api.routes import settings
 
 
@@ -24,6 +33,9 @@ def create_app() -> FastAPI:
     app.include_router(background.router, prefix="/api/background", tags=["background"])
     app.include_router(svg.router, prefix="/api/svg", tags=["svg"])
     app.include_router(color_svg.router, prefix="/api/color-svg", tags=["color-svg"])
+    app.include_router(
+        potrace_color.router, prefix="/api/potrace-color", tags=["potrace-color"]
+    )
     app.include_router(export.router, prefix="/api/export", tags=["export"])
     app.include_router(images.router, prefix="/api/images", tags=["images"])
     app.include_router(settings.router, prefix="/api/settings", tags=["settings"])

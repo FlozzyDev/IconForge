@@ -34,6 +34,19 @@ const DEFAULT_OPTIONS: ProcessingOptions = {
     splice_threshold: 45,
     path_precision: 8,
   },
+  potraceColorSettings: {
+    n_colors: 8,
+    upscale_factor: 3,
+    smoothing: "mean_shift",
+    smooth_spatial_radius: 15,
+    smooth_color_radius: 20,
+    alpha_threshold: 128,
+    min_region_pixels: 32,
+    turdsize: 2,
+    alphamax: 1.0,
+    opttolerance: 0.2,
+    longcurve: true,
+  },
 }
 
 export function useWizard() {
@@ -80,6 +93,13 @@ export function useWizard() {
     }))
   }
 
+  function clearBackgroundRemoved() {
+    setState((prev) => ({
+      ...prev,
+      results: {},
+    }))
+  }
+
   function setOutputFile(file: { filename: string; type: "webp" | "svg" }) {
     setState((prev) => ({
       ...prev,
@@ -110,6 +130,7 @@ export function useWizard() {
     setCroppedImage,
     setOptions,
     setBackgroundRemoved,
+    clearBackgroundRemoved,
     setOutputFile,
     setResults,
     reset,
