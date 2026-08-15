@@ -1,4 +1,10 @@
-import type { ImageInfo } from "@/types"
+import type {
+  ColorSVGSettings,
+  Directory,
+  ImageInfo,
+  PotraceColorSettings,
+  SilhouetteSettings,
+} from "@/types"
 
 const BASE = "/api"
 
@@ -18,7 +24,7 @@ export async function uploadImage(file: File): Promise<ImageInfo> {
   return request("/upload", { method: "POST", body: form })
 }
 
-// Crop
+// Crop (input folder only; writes <stem>_cropped.png back to the input folder)
 export async function cropImage(
   filename: string,
   x: number,
@@ -59,10 +65,10 @@ export async function processBackground(
   })
 }
 
-// SVG conversion
+// Silhouette SVG conversion
 export async function convertToSvg(
   image: string,
-  settings?: Record<string, unknown>
+  settings?: SilhouetteSettings
 ): Promise<{ filename: string }> {
   return request("/svg/convert", {
     method: "POST",
@@ -78,7 +84,7 @@ export async function checkPotrace(): Promise<{ available: boolean }> {
 // Color SVG (vtracer) conversion
 export async function convertColorSVG(
   image: string,
-  settings?: Record<string, unknown>
+  settings?: ColorSVGSettings
 ): Promise<{ filename: string }> {
   return request("/color-svg/convert", {
     method: "POST",
@@ -89,6 +95,81 @@ export async function convertColorSVG(
 
 export async function checkVtracer(): Promise<{ available: boolean }> {
   return request("/color-svg/check-vtracer")
+}
+
+// Color SVG (precision / potrace) conversion
+export async function convertPotraceColor(
+  image: string,
+  settings?: PotraceColorSettings
+): Promise<{ filename: string }> {
+  return request("/potrace-color/convert", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image, settings }),
+  })
+}
+
+export async function checkPotraceColor(): Promise<{ available: boolean }> {
+  return request("/potrace-color/check")
+}
+
+// WebP conversion — writes into output/webp/ and returns the file info
+export async function exportWebp(
+  image: string,
+  quality: number = 90
+): Promise<ImageInfo> {
+  return request("/export/webp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image, quality }),
+  })
+}
+
+// ZIP download of already-converted files in output/webp/
+export async function exportZip(images: string[]): Promise<Blob> {
+  const res = await fetch(`${BASE}/export/zip`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ images }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || "ZIP export failed")
+  }
+  return res.blob()
+}
+
+// Images
+export async function listImages(directory: Directory): Promise<ImageInfo[]> {
+  return request(`/images/${directory}`)
+}
+
+export async function deleteImage(
+  directory: Directory,
+  filename: string
+): Promise<{ deleted: string }> {
+  return request(`/images/${directory}/${encodeURIComponent(filename)}`, {
+    method: "DELETE",
+  })
+}
+
+export function getImageUrl(directory: Directory, filename: string): string {
+  return `${BASE}/images/${directory}/${encodeURIComponent(filename)}`
+}
+
+// Settings
+export async function getSvgSettings(): Promise<Record<string, unknown>> {
+  return request("/settings/svg")
+}
+
+export async function updateSvgSettings(
+  updates: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  return request("/settings/svg", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  })
 }
 
 export async function getColorSVGSettings(): Promise<Record<string, unknown>> {
@@ -105,22 +186,6 @@ export async function updateColorSVGSettings(
   })
 }
 
-// Potrace Color (AA-aware precision engine)
-export async function convertPotraceColor(
-  image: string,
-  settings?: Record<string, unknown>
-): Promise<{ filename: string }> {
-  return request("/potrace-color/convert", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image, settings }),
-  })
-}
-
-export async function checkPotraceColor(): Promise<{ available: boolean }> {
-  return request("/potrace-color/check")
-}
-
 export async function getPotraceColorSettings(): Promise<Record<string, unknown>> {
   return request("/settings/potrace-color")
 }
@@ -129,51 +194,6 @@ export async function updatePotraceColorSettings(
   updates: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   return request("/settings/potrace-color", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  })
-}
-
-// Export
-export async function exportWebp(
-  image: string,
-  quality: number = 90
-): Promise<Blob> {
-  const res = await fetch(`${BASE}/export/webp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image, quality }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail || "Export failed")
-  }
-  return res.blob()
-}
-
-// Images
-export async function listInputImages(): Promise<ImageInfo[]> {
-  return request("/images/input")
-}
-
-export async function listOutputImages(): Promise<ImageInfo[]> {
-  return request("/images/output")
-}
-
-export function getImageUrl(directory: string, filename: string): string {
-  return `${BASE}/images/${directory}/${filename}`
-}
-
-// Settings
-export async function getSvgSettings(): Promise<Record<string, unknown>> {
-  return request("/settings/svg")
-}
-
-export async function updateSvgSettings(
-  updates: Record<string, unknown>
-): Promise<Record<string, unknown>> {
-  return request("/settings/svg", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(updates),

@@ -4,7 +4,7 @@ from PIL import Image
 
 from backend.api.dependencies import (
     get_input_dir,
-    get_output_dir,
+    get_output_subdir,
     safe_filename,
     processing_lock,
 )
@@ -35,10 +35,7 @@ async def process_background(req: ProcessRequest):
     """Remove background from an image."""
     filename = safe_filename(req.image)
 
-    # Check input dir then output dir (for cropped images)
     image_path = get_input_dir() / filename
-    if not image_path.exists():
-        image_path = get_output_dir() / filename
     if not image_path.exists():
         raise HTTPException(status_code=404, detail=f"Image not found: {filename}")
 
@@ -47,6 +44,7 @@ async def process_background(req: ProcessRequest):
             from backend.background_remover.processor import BackgroundProcessor
 
             processor = BackgroundProcessor()
+            processor.output_dir = get_output_subdir("background_removed")
             output_path = processor.process(
                 image_path,
                 model_type=req.model_type,

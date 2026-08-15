@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 from PIL import Image
 
 from backend.potrace_color_converter.preprocess import (
+    clean_mask,
     edge_preserving_smooth,
+    merge_similar_colors,
     quantize_lab,
     upscale_rgba,
 )
@@ -50,10 +52,12 @@ class PotraceColorConverter:
                 "smooth_color_radius": 20,
                 "alpha_threshold": 128,
                 "min_region_pixels": 32,
+                "merge_color_distance": 10,
+                "mask_cleanup": True,
                 "turdsize": 2,
                 "alphamax": 1.0,
                 "opttolerance": 0.2,
-                "longcurve": True,
+                "longcurve": False,
             }
 
     def check_potrace(self) -> bool:
@@ -109,21 +113,28 @@ class PotraceColorConverter:
         n_colors = int(active.get("n_colors", 8))
         labels, centers_rgb = quantize_lab(rgb, opaque_mask, n_colors)
 
+        # 5b. Collapse near-duplicate clusters (AA gradients often steal clusters)
+        merge_distance = float(active.get("merge_color_distance", 10))
+        labels, centers_rgb = merge_similar_colors(labels, centers_rgb, merge_distance)
+
         # 6. Per-color: build mask → Potrace → collect
         min_region = int(active.get("min_region_pixels", 32))
         # min_region is specified in SOURCE pixels; scale to the current (upscaled) space.
         min_region_scaled = min_region * (upscale * upscale)
+        mask_cleanup = bool(active.get("mask_cleanup", True))
 
         potrace_settings = {
             "turdsize": active.get("turdsize", 2),
             "alphamax": active.get("alphamax", 1.0),
             "opttolerance": active.get("opttolerance", 0.2),
-            "longcurve": active.get("longcurve", True),
+            "longcurve": active.get("longcurve", False),
         }
 
         paths = []
         for color_idx in range(centers_rgb.shape[0]):
             mask = labels == color_idx
+            if mask_cleanup:
+                mask = clean_mask(mask, upscale)
             area = int(mask.sum())
             if area < min_region_scaled:
                 continue

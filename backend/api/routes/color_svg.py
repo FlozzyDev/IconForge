@@ -2,7 +2,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from backend.api.dependencies import get_output_dir, safe_filename, processing_lock
+from backend.api.dependencies import (
+    get_input_dir,
+    get_output_subdir,
+    safe_filename,
+    processing_lock,
+)
 
 router = APIRouter()
 
@@ -22,10 +27,12 @@ async def check_vtracer():
 
 @router.post("/convert")
 async def convert_to_color_svg(req: ConvertRequest):
-    """Convert a background-removed image to a colored multi-path SVG via VTracer."""
+    """Convert an image to a colored multi-path SVG via VTracer. Sources from
+    the input folder first, then the background-removed outputs."""
     filename = safe_filename(req.image)
-    image_path = get_output_dir() / filename
-
+    image_path = get_input_dir() / filename
+    if not image_path.exists():
+        image_path = get_output_subdir("background_removed") / filename
     if not image_path.exists():
         raise HTTPException(status_code=404, detail=f"Image not found: {filename}")
 
@@ -34,6 +41,7 @@ async def convert_to_color_svg(req: ConvertRequest):
             from backend.color_svg_converter.processor import ColorSVGConverter
 
             converter = ColorSVGConverter()
+            converter.output_dir = get_output_subdir("color_svg")
             output_path = converter.convert(image_path, settings=req.settings)
         except RuntimeError as e:
             raise HTTPException(status_code=500, detail=str(e))

@@ -46,7 +46,7 @@ class SVGConverter:
                 "turdsize": 2,
                 "alphamax": 1.0,
                 "opttolerance": 0.2,
-                "longcurve": True,
+                "longcurve": False,
                 "scale": 1.0,
             }
 
@@ -107,7 +107,9 @@ class SVGConverter:
                 "-o", str(output_path),
             ]
 
-            if active_settings.get("longcurve", True):
+            # NOTE: --longcurve DISABLES Potrace's curve optimization (segment
+            # merging), producing far more anchor points. Off by default.
+            if active_settings.get("longcurve", False):
                 cmd.append("--longcurve")
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)

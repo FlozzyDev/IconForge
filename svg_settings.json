@@ -25,15 +25,15 @@
   },
   "opttolerance": {
     "value": 0.2,
-    "description": "Curve optimization tolerance. Lower = more precise curves, Higher = simpler curves",
+    "description": "Curve optimization tolerance. Higher = fewer anchor points, simpler curves",
     "range": [
       0.0,
-      1.0
+      2.0
     ]
   },
   "longcurve": {
-    "value": true,
-    "description": "Enable long curve optimization for smoother paths",
+    "value": false,
+    "description": "Potrace --longcurve: DISABLES curve optimization, keeping every raw segment (many more anchor points). Leave off unless you need maximum fidelity",
     "type": "boolean"
   },
   "scale": {

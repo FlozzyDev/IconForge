@@ -4,19 +4,22 @@
 IconForge removes backgrounds from images and converts them to icon-ready formats. Output options: WebP, monochrome silhouette SVG (Potrace), color multi-path SVG via VTracer (fast), or color SVG via an AA-aware preprocessor + per-color Potrace (precision). Ships with both a CLI and a web UI.
 
 ## Data Flow
-```
-Upload image → Crop (8px grid snap) → Background Removal (optional — can be skipped)
-                ↓
-     pick ONE output type:
-       WebP | Silhouette SVG* | Color SVG (VTracer) | Color SVG (Precision)
-                ↓
-     Process → Export
+The web UI is **service-based**: each pipeline is an independent workflow, all batch-first (multi-select N images → run → per-image status → download).
 
-* Silhouette SVG requires background removal (it traces the alpha channel).
-  Disabled with a tooltip if the user skips BG removal.
+```
+assets/input_images/  ←── upload via UI, or drop files in directly
+        │                 (optional per-image crop writes <stem>_cropped.png back here)
+        │
+        ├── Background Removal ──→ output/background_removed/   (transparent PNGs)
+        ├── Silhouette SVG* ─────→ output/silhouette/           (monochrome SVG, Potrace)
+        ├── Color SVG ───────────→ output/color_svg/            (VTracer "fast" or AA-aware "precision" engine)
+        └── WebP Convert ────────→ output/webp/                 (+ Download-All-as-ZIP)
+
+* Silhouette traces the alpha channel — source from output/background_removed/
+  (or input images that already have transparency).
 ```
 
-All downstream pipelines consume either the BG-removed PNG or, when skipped, the cropped PNG directly — both live in `backend/background_remover/output/`.
+Services chain through the folders: the SVG and WebP services can source from `output/background_removed/` as well as the input folder. An **Outputs** tab browses all four output folders with download/delete. Input images can also be deleted from the UI. (The CLI still writes to the legacy `backend/background_remover/output/`.)
 
 ## Project Structure
 ```
@@ -48,18 +51,20 @@ iconforge/
 │       └── image_utils.py            # floor_to_grid, snap_image_to_grid, ensure_file_on_grid (8px enforcement)
 ├── frontend/                         # React SPA (Vite + TypeScript + Tailwind + shadcn/ui)
 │   └── src/
-│       ├── App.tsx                   # 5-step wizard state machine (Upload → BG Removal → Output Type → Processing → Export)
+│       ├── App.tsx                   # Service nav + global AppSettings state
 │       ├── components/
 │       │   ├── ui/                   # shadcn/ui: badge, button, card, collapsible, progress, select, separator, slider, switch
-│       │   ├── steps/                # UploadStep, BackgroundRemovalStep, OutputTypeStep, ProcessingStep, ExportStep
-│       │   ├── shared/               # ImageCropper (custom, vanilla React), DropZone, ImagePreview, SettingsPanel, StepIndicator
-│       │   └── layout/               # WizardLayout
-│       ├── hooks/                    # useWizard (useApi scaffolded but unused)
+│       │   ├── services/             # BackgroundRemovalService, SilhouetteService, ColorSVGService, WebPService (thin ServicePage wrappers)
+│       │   ├── settings/             # Per-engine settings panels (sliders/selects + preset pills)
+│       │   ├── outputs/              # OutputsBrowser — tabbed browser of output/ folders
+│       │   ├── shared/               # ServicePage (generic batch runner), ImagePicker, ImageCropper, BgModelPicker, DropZone, ImagePreview
+│       │   └── layout/               # AppLayout (header + service nav)
 │       ├── services/api.ts           # Typed fetch calls to backend
 │       ├── utils/imageUtils.ts       # snapToGrid, snapDimensions, getImageDimensions, formatFileSize
 │       ├── lib/utils.ts              # cn() — clsx + tailwind-merge helper
 │       └── types/index.ts            # Shared TypeScript interfaces
-├── assets/input_images/              # User input folder
+├── assets/input_images/              # User input folder (upload target; delete & crop from the UI)
+├── output/                           # Service outputs (gitignored): background_removed/, silhouette/, color_svg/, webp/
 ├── pyproject.toml                    # Python dependency list
 ├── svg_settings.json                 # Persisted silhouette (Potrace) settings
 ├── color_svg_settings.json           # Persisted color SVG (VTracer) settings
@@ -77,14 +82,14 @@ Frontend proxies `/api` → `http://127.0.0.1:8000` (configured in `vite.config`
 
 | Route file     | Endpoints                                                                                     |
 |----------------|-----------------------------------------------------------------------------------------------|
-| upload.py      | `POST /api/upload` (auto 8px snap)                                                            |
-| crop.py        | `POST /api/crop` (enforces 8px grid)                                                          |
-| background.py  | `GET /api/background/models`, `POST /api/background/process`                                  |
+| upload.py      | `POST /api/upload` (auto 8px snap, saves to input folder)                                     |
+| crop.py        | `POST /api/crop` (enforces 8px grid; writes cropped copy back to input folder)                |
+| background.py  | `GET /api/background/models`, `POST /api/background/process` (→ output/background_removed)    |
 | svg.py           | `GET /api/svg/check-potrace`, `POST /api/svg/convert`                                                 |
 | color_svg.py     | `GET /api/color-svg/check-vtracer`, `POST /api/color-svg/convert`                                     |
 | potrace_color.py | `GET /api/potrace-color/check`, `POST /api/potrace-color/convert`                                     |
-| export.py        | `POST /api/export/webp` (quality 1–100, returns FileResponse)                                         |
-| images.py        | `GET/DELETE /api/images/{directory}/{filename}`, `GET /api/images/input`, `/api/images/output`         |
+| export.py        | `POST /api/export/webp` (quality 1–100, saves to output/webp, returns JSON), `POST /api/export/zip` (ZIP of output/webp files) |
+| images.py        | `GET /api/images/{directory}` (list), `GET/DELETE /api/images/{directory}/{filename}`; directory ∈ input, background_removed, silhouette, color_svg, webp |
 | settings.py      | `GET/PUT /api/settings/svg`, `GET/PUT /api/settings/color-svg`, `GET/PUT /api/settings/potrace-color` |
 
 ## How to Run
@@ -109,10 +114,10 @@ cd frontend && pnpm dev
 
 ## Output Rules
 1. Raster exports are **WebP** format
-2. All dimensions are **divisible by 8** (enforced at upload and crop via `backend/core/image_utils.py`)
+2. All dimensions are **divisible by 8** (enforced at upload and crop via `backend/core/image_utils.py`; the WebP converter floors to /8 for images that skipped both)
 3. Vector outputs are **SVG** — monochrome silhouette (Potrace), fast color multi-path (VTracer), or AA-aware precision color (upscale + edge-preserving smooth + per-color Potrace)
-4. Background removal is **optional** — users can skip it to keep the original background (useful for logos with intended backdrops). When skipped, downstream pipelines use the cropped PNG directly. The only output type that *requires* BG removal is Silhouette SVG, because it traces the alpha channel
-5. One output format per wizard run; re-run to produce another format from the same crop
+4. Background removal is **its own service**, not a prerequisite — SVG and WebP services can consume raw input images directly (useful for logos with intended backdrops). Silhouette SVG is the exception: it traces the alpha channel, so opaque images should go through Background Removal first
+5. Every service run writes its results to `output/<kind>/` — downloads are conveniences, the folder is the source of truth
 
 ## Per-Feature Documentation
 Each major subsystem has its own `CLAUDE.md` with algorithm details, settings reference, and gotchas. Read the relevant one before modifying that subsystem.

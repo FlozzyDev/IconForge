@@ -2,37 +2,36 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from PIL import Image
 
-from backend.api.dependencies import get_input_dir, get_output_dir, safe_filename
+from backend.api.dependencies import (
+    OUTPUT_KINDS,
+    get_input_dir,
+    get_output_subdir,
+    safe_filename,
+)
 
 router = APIRouter()
 
-DIRECTORY_MAP = {
-    "input": get_input_dir,
-    "output": get_output_dir,
-}
+
+def _resolve_dir(directory: str):
+    """Map a directory name to its path, or raise 400."""
+    if directory == "input":
+        return get_input_dir()
+    if directory in OUTPUT_KINDS:
+        return get_output_subdir(directory)
+    raise HTTPException(status_code=400, detail=f"Invalid directory: {directory}")
 
 
-@router.get("/input")
-async def list_input_images():
-    """List images in the input directory."""
-    return _list_images(get_input_dir())
-
-
-@router.get("/output")
-async def list_output_images():
-    """List images in the output directory."""
-    return _list_images(get_output_dir())
+@router.get("/{directory}")
+async def list_images(directory: str):
+    """List images in a directory (input or one of the output kinds)."""
+    return _list_images(_resolve_dir(directory))
 
 
 @router.get("/{directory}/{filename}")
 async def serve_image(directory: str, filename: str):
     """Serve an image file for preview."""
-    dir_fn = DIRECTORY_MAP.get(directory)
-    if not dir_fn:
-        raise HTTPException(status_code=400, detail=f"Invalid directory: {directory}")
-
     safe_name = safe_filename(filename)
-    file_path = dir_fn() / safe_name
+    file_path = _resolve_dir(directory) / safe_name
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
@@ -54,12 +53,9 @@ async def serve_image(directory: str, filename: str):
 
 @router.delete("/{directory}/{filename}")
 async def delete_image(directory: str, filename: str):
-    """Delete an output image."""
-    if directory != "output":
-        raise HTTPException(status_code=403, detail="Can only delete output images")
-
+    """Delete an image from the input folder or any output folder."""
     safe_name = safe_filename(filename)
-    file_path = get_output_dir() / safe_name
+    file_path = _resolve_dir(directory) / safe_name
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")

@@ -46,6 +46,16 @@ class PotraceColorSettings:
                 "description": "Drop color regions smaller than this pixel count (measured pre-upscale).",
                 "range": [0, 500],
             },
+            "merge_color_distance": {
+                "value": 10,
+                "description": "Merge k-means clusters whose Lab centers are closer than this (delta-E-like). 0 disables merging.",
+                "range": [0, 40],
+            },
+            "mask_cleanup": {
+                "value": True,
+                "description": "Morphological open+close on each color mask to remove pixel islands and smooth ragged edges before tracing.",
+                "type": "boolean",
+            },
             "turdsize": {
                 "value": 2,
                 "description": "Potrace speckle filter: minimum shape area in pixels (passthrough).",
@@ -58,12 +68,12 @@ class PotraceColorSettings:
             },
             "opttolerance": {
                 "value": 0.2,
-                "description": "Potrace curve optimization tolerance. Lower = more precise, higher = simpler curves.",
-                "range": [0.0, 1.0],
+                "description": "Potrace curve optimization tolerance. Higher = fewer anchor points, simpler curves.",
+                "range": [0.0, 2.0],
             },
             "longcurve": {
-                "value": True,
-                "description": "Enable Potrace --longcurve optimization for smoother paths.",
+                "value": False,
+                "description": "Potrace --longcurve: DISABLES curve optimization, keeping every raw segment (many more anchor points). Leave off unless you need maximum fidelity.",
                 "type": "boolean",
             },
         }

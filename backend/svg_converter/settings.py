@@ -28,12 +28,12 @@ class SVGSettings:
             },
             "opttolerance": {
                 "value": 0.2,
-                "description": "Curve optimization tolerance. Lower = more precise curves, Higher = simpler curves",
-                "range": [0.0, 1.0]
+                "description": "Curve optimization tolerance. Higher = fewer anchor points, simpler curves",
+                "range": [0.0, 2.0]
             },
             "longcurve": {
-                "value": True,
-                "description": "Enable long curve optimization for smoother paths",
+                "value": False,
+                "description": "Potrace --longcurve: DISABLES curve optimization, keeping every raw segment (many more anchor points). Leave off unless you need maximum fidelity",
                 "type": "boolean"
             },
             "scale": {
@@ -218,22 +218,23 @@ class SVGSettings:
             print("Please enter a valid number")
 
     def _toggle_longcurve(self):
-        """Toggle the longcurve setting, it controls the long curve optimization for smoother paths. Enabled = smoother, Disabled = faster processing"""
+        """Toggle the longcurve flag. WARNING: enabling passes --longcurve to Potrace,
+        which turns OFF its curve optimizer and keeps every raw segment."""
         setting = self.current_settings["longcurve"]
         current = setting["value"]
-        
-        print(f"\n=== Long Curve Optimization ===")
+
+        print(f"\n=== Raw Segments (--longcurve) ===")
         print(f"Current value: {'Enabled' if current else 'Disabled'}")
         print(f"Description: {setting['description']}")
-        print(f"  Enabled = Smoother, more optimized curves")
-        print(f"  Disabled = Faster processing, less optimization")
-        
-        toggle = input("Toggle long curve optimization? (y/n): ").lower()
+        print(f"  Enabled = Curve optimization OFF (many more anchor points)")
+        print(f"  Disabled = Curve optimization ON (merged, simpler curves)")
+
+        toggle = input("Toggle raw segments mode? (y/n): ").lower()
         if toggle in ['y', 'yes']:
             self.current_settings["longcurve"]["value"] = not current
             self._save_settings()
             status = "Enabled" if not current else "Disabled"
-            print(f"Long curve optimization {status}")
+            print(f"Raw segments mode {status}")
         else:
             print("Setting unchanged")
 

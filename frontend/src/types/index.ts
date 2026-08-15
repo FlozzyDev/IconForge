@@ -1,7 +1,7 @@
 export interface ImageInfo {
   filename: string
-  width: number
-  height: number
+  width?: number
+  height?: number
   size?: number
 }
 
@@ -12,7 +12,23 @@ export interface CropData {
   height: number
 }
 
-export type OutputType = "webp" | "silhouette" | "colorSVG" | "colorPotrace"
+/** Server-side image directories: the input folder plus one folder per output type. */
+export type Directory =
+  | "input"
+  | "background_removed"
+  | "silhouette"
+  | "color_svg"
+  | "webp"
+
+/** Top-level UI services. */
+export type ServiceId =
+  | "background"
+  | "silhouette"
+  | "colorSvg"
+  | "webp"
+  | "outputs"
+
+export type ColorEngine = "fast" | "precision"
 
 export interface BackgroundSettings {
   modelType: "rembg" | "inspyrenet"
@@ -50,30 +66,35 @@ export interface PotraceColorSettings {
   smooth_color_radius: number
   alpha_threshold: number
   min_region_pixels: number
+  merge_color_distance: number
+  mask_cleanup: boolean
   turdsize: number
   alphamax: number
   opttolerance: number
   longcurve: boolean
 }
 
-export interface ProcessingOptions {
-  outputType: OutputType | null
+/** All engine settings, shared across service pages so tuning survives tab switches. */
+export interface AppSettings {
   webpQuality: number
+  colorEngine: ColorEngine
   bgSettings: BackgroundSettings
   svgSettings: SilhouetteSettings
   colorSVGSettings: ColorSVGSettings
   potraceColorSettings: PotraceColorSettings
 }
 
-export interface ProcessingResults {
-  backgroundRemoved?: ImageInfo
-  outputFile?: { filename: string; type: "webp" | "svg" }
+/** An image selected as a processing source, tagged with the directory it lives in. */
+export interface SourceRef {
+  directory: Directory
+  info: ImageInfo
 }
 
-export interface WizardState {
-  currentStep: number
-  originalImage: ImageInfo | null
-  croppedImage: ImageInfo | null
-  options: ProcessingOptions
-  results: ProcessingResults
+export type RunStatus = "pending" | "processing" | "done" | "error"
+
+export interface RunItem {
+  source: SourceRef
+  status: RunStatus
+  result?: ImageInfo
+  error?: string
 }

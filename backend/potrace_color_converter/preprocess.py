@@ -45,6 +45,91 @@ def edge_preserving_smooth(
     raise ValueError(f"Unknown smoothing mode: {mode}")
 
 
+def merge_similar_colors(
+    labels: np.ndarray, centers_rgb: np.ndarray, max_distance: float
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Merge k-means clusters whose centers are within max_distance in Lab space.
+
+    K-means with a generous k often lands extra clusters on anti-aliasing
+    gradients, producing near-duplicate color layers. This collapses any group
+    of clusters closer than max_distance (OpenCV Lab units, roughly delta-E)
+    into one, with the merged center being the pixel-count-weighted average.
+
+    Args:
+        labels: HxW int32 array from quantize_lab (-1 = transparent).
+        centers_rgb: (N, 3) uint8 RGB centroids.
+        max_distance: Merge threshold; 0 disables merging.
+
+    Returns:
+        (labels, centers_rgb) with merged clusters relabeled contiguously.
+    """
+    n = centers_rgb.shape[0]
+    if max_distance <= 0 or n <= 1:
+        return labels, centers_rgb
+
+    centers_lab = (
+        cv2.cvtColor(centers_rgb.reshape(1, -1, 3), cv2.COLOR_RGB2LAB)
+        .reshape(-1, 3)
+        .astype(np.float64)
+    )
+
+    # Union-find over cluster pairs within threshold.
+    parent = list(range(n))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if np.linalg.norm(centers_lab[i] - centers_lab[j]) <= max_distance:
+                parent[find(i)] = find(j)
+
+    roots = [find(i) for i in range(n)]
+    unique_roots = sorted(set(roots))
+    if len(unique_roots) == n:
+        return labels, centers_rgb
+
+    # Weighted-average merged centers in Lab, weighted by cluster pixel count.
+    counts = np.array([(labels == i).sum() for i in range(n)], dtype=np.float64)
+    root_to_new = {root: new for new, root in enumerate(unique_roots)}
+    new_centers_lab = np.zeros((len(unique_roots), 3), dtype=np.float64)
+    new_counts = np.zeros(len(unique_roots), dtype=np.float64)
+    for i in range(n):
+        new_idx = root_to_new[roots[i]]
+        new_centers_lab[new_idx] += centers_lab[i] * counts[i]
+        new_counts[new_idx] += counts[i]
+    new_counts[new_counts == 0] = 1  # empty clusters: avoid div-by-zero
+    new_centers_lab /= new_counts[:, None]
+
+    new_centers_rgb = cv2.cvtColor(
+        np.clip(new_centers_lab, 0, 255).astype(np.uint8).reshape(1, -1, 3),
+        cv2.COLOR_LAB2RGB,
+    ).reshape(-1, 3)
+
+    # Remap labels (transparent -1 passes through).
+    mapping = np.array([root_to_new[roots[i]] for i in range(n)], dtype=np.int32)
+    new_labels = np.where(labels >= 0, mapping[np.clip(labels, 0, n - 1)], -1)
+
+    return new_labels.astype(np.int32), new_centers_rgb
+
+
+def clean_mask(mask: np.ndarray, upscale: int) -> np.ndarray:
+    """Morphological open + close to drop pixel islands and smooth ragged edges.
+
+    The kernel scales with the upscale factor so cleanup strength stays constant
+    in source-pixel terms.
+    """
+    kernel_size = max(3, 2 * upscale + 1)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+    m = mask.astype(np.uint8)
+    m = cv2.morphologyEx(m, cv2.MORPH_OPEN, kernel)
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, kernel)
+    return m.astype(bool)
+
+
 def quantize_lab(
     rgb: np.ndarray, opaque_mask: np.ndarray, n_colors: int
 ) -> Tuple[np.ndarray, np.ndarray]:

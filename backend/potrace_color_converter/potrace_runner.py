@@ -62,7 +62,9 @@ def trace_mask(
             "-o",
             temp_out,
         ]
-        if potrace_settings.get("longcurve", True):
+        # NOTE: --longcurve DISABLES Potrace's curve optimization (segment
+        # merging), producing far more anchor points. Off by default.
+        if potrace_settings.get("longcurve", False):
             cmd.append("--longcurve")
 
         result = subprocess.run(

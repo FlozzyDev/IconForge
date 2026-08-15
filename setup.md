@@ -1,6 +1,7 @@
 # IconForge Setup
 
 ## Prerequisites
+
 - Python 3.13+
 - Node.js 24+
 - pnpm
@@ -10,6 +11,7 @@
 ## First-Time Setup
 
 ### Backend (from project root)
+
 ```bash
 uv venv
 uv pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
@@ -17,6 +19,7 @@ uv pip install -r pyproject.toml
 ```
 
 ### Frontend
+
 ```bash
 cd frontend
 pnpm install
@@ -27,17 +30,21 @@ pnpm install
 Two terminals, both from the **project root**.
 
 ### Terminal 1 — Backend (port 8000)
+
 ```bash
-.venv\Scripts\uvicorn backend.api.app:app --reload
+source .venv/Scripts/activate
+uvicorn backend.api.app:app --reload
 ```
 
 ### Terminal 2 — Frontend (port 5173)
+
 ```bash
 cd frontend
 pnpm dev
 ```
 
 ### Open in browser
+
 ```
 http://localhost:5173
 ```
